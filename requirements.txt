@@ -2,6 +2,5 @@ streamlit
 requests
 beautifulsoup4
 pandas
-extract_msg
 compressed_rtf
 olefile

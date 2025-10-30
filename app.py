@@ -5,9 +5,9 @@ import io
 import re
 from datetime import datetime
 
-st.set_page_config(page_title="Email .msg Data Extractor", page_icon="📧", layout="wide")
+st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
-st.title("📧 Email Data Extractor (.msg files)")
+st.title("📧 AI4IAM - Special Permissions")
 st.markdown("---")
 
 def extract_info(email_body):
@@ -45,12 +45,15 @@ def extract_info(email_body):
     if match_date:
         info['End_Date'] = match_date.group(1).strip()
 
-    # Link (URL or plain text)
+    # Link (clean extraction)
     match_link = re.search(r'Link:\s*<?([^>\r\n]+)>?', text, re.IGNORECASE)
     if match_link:
-        link = match_link.group(1).strip()
-        link = re.sub(r'[<>]', '', link).strip()
-        info['Link'] = link
+        link_text = match_link.group(1).strip()
+        # If both text and URL are stuck together, extract only the URL
+        url_match = re.search(r'(https?://[^\s>]+)', link_text)
+        if url_match:
+            link_text = url_match.group(1).strip()
+        info['Link'] = link_text
 
     return info
 
@@ -102,7 +105,7 @@ if uploaded_files:
 
             col1, col2 = st.columns(2)
 
-            # --- CSV (plain text link) ---
+            # --- CSV (plain link) ---
             with col1:
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(

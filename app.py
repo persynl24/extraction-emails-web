@@ -5,116 +5,117 @@ import io
 import re
 from datetime import datetime
 
-st.set_page_config(page_title="Extracteur Emails .msg", page_icon="📧", layout="wide")
+st.set_page_config(page_title="Email .msg Data Extractor", page_icon="📧", layout="wide")
 
-st.title("📧 Extracteur de données depuis fichiers .msg")
+st.title("📧 Email Data Extractor (.msg files)")
 st.markdown("---")
 
-def extraire_infos(corps_email):
-    infos = {
+def extract_info(email_body):
+    info = {
         'User_ID': None,
-        'Nom_Utilisateur': None,
+        'User_Name': None,
         'Manager': None,
-        'Permission_Speciale': None,
-        'Code_Permission': None,
-        'Date_Fin': None,
-        'Lien': None
+        'Special_Permission': None,
+        'Permission_Code': None,
+        'End_Date': None,
+        'Link': None
     }
 
-    # Nettoyage de base
-    texte = corps_email.replace("\r", "").strip()
+    text = email_body.replace("\r", "").strip()
 
-    # User et Nom : capture jusqu'à la fin de la ligne
-    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([^\r\n]+)', texte, re.IGNORECASE)
+    # User ID and Name
+    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([^\r\n]+)', text, re.IGNORECASE)
     if match_user:
-        infos['User_ID'] = match_user.group(1).strip()
-        infos['Nom_Utilisateur'] = match_user.group(2).strip()
+        info['User_ID'] = match_user.group(1).strip()
+        info['User_Name'] = match_user.group(2).strip()
 
-    # Manager : capture jusqu'à la fin de la ligne
-    match_manager = re.search(r'Manager:\s*([^\r\n]+)', texte, re.IGNORECASE)
+    # Manager
+    match_manager = re.search(r'Manager:\s*([^\r\n]+)', text, re.IGNORECASE)
     if match_manager:
-        infos['Manager'] = match_manager.group(1).strip()
+        info['Manager'] = match_manager.group(1).strip()
 
-    # Permission spéciale et code (tout avant et dans parenthèses)
-    match_permission = re.search(r'Special permission:\s*([^\(]+)\((\d+)\)', texte, re.IGNORECASE)
+    # Special permission and code
+    match_permission = re.search(r'Special permission:\s*([^\(]+)\((\d+)\)', text, re.IGNORECASE)
     if match_permission:
-        infos['Permission_Speciale'] = match_permission.group(1).strip()
-        infos['Code_Permission'] = match_permission.group(2).strip()
+        info['Special_Permission'] = match_permission.group(1).strip()
+        info['Permission_Code'] = match_permission.group(2).strip()
 
-    # Date fin
-    match_date = re.search(r'Planned End date:\s*(\d{2}[-/]\d{2}[-/]\d{4})', texte, re.IGNORECASE)
+    # End date
+    match_date = re.search(r'Planned End date:\s*(\d{2}[-/]\d{2}[-/]\d{4})', text, re.IGNORECASE)
     if match_date:
-        infos['Date_Fin'] = match_date.group(1).strip()
+        info['End_Date'] = match_date.group(1).strip()
 
-    # Lien propre (avec ou sans chevrons)
-    match_lien = re.search(r'Link:\s*<?(https?://[^\s>]+)>?', texte, re.IGNORECASE)
-    if match_lien:
-        infos['Lien'] = match_lien.group(1).strip()
+    # Link (URL or plain text)
+    match_link = re.search(r'Link:\s*<?([^>\r\n]+)>?', text, re.IGNORECASE)
+    if match_link:
+        link = match_link.group(1).strip()
+        link = re.sub(r'[<>]', '', link).strip()
+        info['Link'] = link
 
-    return infos
+    return info
 
 
-# --- Interface Streamlit ---
-st.sidebar.header("📁 Upload des fichiers")
+# --- Streamlit UI ---
+st.sidebar.header("📁 Upload Files")
 uploaded_files = st.sidebar.file_uploader(
-    "Sélectionnez vos fichiers .msg",
+    "Select your .msg files",
     type=['msg'],
     accept_multiple_files=True
 )
 
 if uploaded_files:
-    st.success(f"✅ {len(uploaded_files)} fichier(s) uploadé(s)")
+    st.success(f"✅ {len(uploaded_files)} file(s) uploaded")
 
-    if st.button("🚀 EXTRAIRE LES DONNÉES", type="primary"):
-        donnees = []
+    if st.button("🚀 EXTRACT DATA", type="primary"):
+        data = []
         progress_bar = st.progress(0)
         status_text = st.empty()
 
         for i, uploaded_file in enumerate(uploaded_files):
             try:
                 msg = extract_msg.Message(io.BytesIO(uploaded_file.read()))
-                infos = extraire_infos(msg.body)
-                donnees.append(infos)
+                info = extract_info(msg.body)
+                data.append(info)
                 msg.close()
 
                 progress_bar.progress((i + 1) / len(uploaded_files))
-                status_text.text(f"Traitement : {i+1}/{len(uploaded_files)}")
+                status_text.text(f"Processing: {i+1}/{len(uploaded_files)}")
 
             except Exception as e:
-                st.warning(f"⚠️ Erreur avec {uploaded_file.name}: {str(e)}")
+                st.warning(f"⚠️ Error with {uploaded_file.name}: {str(e)}")
 
-        if donnees:
-            df = pd.DataFrame(donnees)
-            colonnes_ordre = [
-                'User_ID', 'Nom_Utilisateur', 'Manager',
-                'Permission_Speciale', 'Code_Permission',
-                'Date_Fin', 'Lien'
+        if data:
+            df = pd.DataFrame(data)
+            column_order = [
+                'User_ID', 'User_Name', 'Manager',
+                'Special_Permission', 'Permission_Code',
+                'End_Date', 'Link'
             ]
-            df = df[colonnes_ordre]
+            df = df[column_order]
 
             st.markdown("---")
-            st.subheader("📊 Résultats")
+            st.subheader("📊 Extracted Data")
             st.dataframe(df, use_container_width=True)
 
             st.markdown("---")
-            st.subheader("📥 Téléchargement")
+            st.subheader("📥 Download Results")
 
             col1, col2 = st.columns(2)
 
-            # --- CSV : lien texte simple ---
+            # --- CSV (plain text link) ---
             with col1:
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📄 Télécharger CSV",
+                    label="📄 Download CSV",
                     data=csv,
                     file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                     mime="text/csv"
                 )
 
-            # --- Excel : lien cliquable ---
+            # --- Excel (clickable links) ---
             with col2:
                 df_excel = df.copy()
-                df_excel['Lien'] = df_excel['Lien'].apply(
+                df_excel['Link'] = df_excel['Link'].apply(
                     lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
                 )
 
@@ -124,30 +125,30 @@ if uploaded_files:
                 excel_data = output.getvalue()
 
                 st.download_button(
-                    label="📊 Télécharger Excel (liens cliquables)",
+                    label="📊 Download Excel (clickable links)",
                     data=excel_data,
                     file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-            st.success(f"✅ Extraction terminée ! {len(donnees)} emails traités.")
+            st.success(f"✅ Extraction complete! {len(data)} email(s) processed.")
         else:
-            st.error("❌ Aucune donnée extraite")
+            st.error("❌ No data extracted")
 
 else:
-    st.info("👈 Uploadez vos fichiers .msg dans la barre latérale pour commencer")
+    st.info("👈 Upload your .msg files using the sidebar to get started.")
 
     st.markdown("---")
     st.subheader("📖 Instructions")
     st.markdown("""
-    1. Cliquez sur **"Browse files"** dans la barre latérale  
-    2. Sélectionnez un ou plusieurs fichiers .msg  
-    3. Cliquez sur **"EXTRAIRE LES DONNÉES"**  
-    4. Téléchargez le résultat en CSV ou Excel  
+    1. Click **"Browse files"** in the sidebar  
+    2. Select one or more `.msg` email files  
+    3. Click **"EXTRACT DATA"**  
+    4. Download the results in CSV or Excel format  
     """)
 
     st.markdown("---")
-    st.subheader("📋 Exemple de format d'email")
+    st.subheader("📋 Example Email Format")
     st.code("""
 Dear Approver, 
 Please evaluate the special user permission below: 

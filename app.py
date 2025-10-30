@@ -167,40 +167,28 @@ if st.session_state.uploaded_files:
                 # --- STEP 3: DOWNLOAD RESULTS ---
                 with st.expander("💾 Step 3: Download Results", expanded=True):
                     st.markdown('<div class="blue-container">', unsafe_allow_html=True)
-                    st.markdown("### 🎯 Choose your export format:")
+                    st.markdown("### 🎯 Export your results (Excel only)")
 
-                    col1, col2 = st.columns(2)
+                    df_excel = df.copy()
+                    df_excel['Link'] = df_excel['Link'].apply(
+                        lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
+                    )
 
-                    with col1:
-                        csv = df.to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label="🧾 Download CSV – for data tools",
-                            data=csv,
-                            file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                            mime="text/csv"
-                        )
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        df_excel.to_excel(writer, index=False)
+                        worksheet = writer.sheets['Sheet1']
+                        for column_cells in worksheet.columns:
+                            max_length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+                            worksheet.column_dimensions[column_cells[0].column_letter].width = max_length + 2
+                    excel_data = output.getvalue()
 
-                    with col2:
-                        df_excel = df.copy()
-                        df_excel['Link'] = df_excel['Link'].apply(
-                            lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
-                        )
-
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            df_excel.to_excel(writer, index=False)
-                            worksheet = writer.sheets['Sheet1']
-                            for column_cells in worksheet.columns:
-                                max_length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
-                                worksheet.column_dimensions[column_cells[0].column_letter].width = max_length + 2
-                        excel_data = output.getvalue()
-
-                        st.download_button(
-                            label="📘 Download Excel – for manual review",
-                            data=excel_data,
-                            file_name=f"PRIAM - Special Permissions - {datetime.now().strftime('%Y-%m-%d')}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
+                    st.download_button(
+                        label="📘 Download Excel – for manual review",
+                        data=excel_data,
+                        file_name=f"PRIAM - Special Permissions - {datetime.now().strftime('%Y-%m-%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -217,7 +205,7 @@ else:
     st.markdown("""
     1. Expand **Step 1** and upload one or more `.msg` email files  
     2. Click **"🚀 EXTRACT DATA"** under Step 2  
-    3. Download the results in CSV or Excel format under Step 3  
+    3. Download the results in Excel format under Step 3  
     """)
 
     st.markdown("---")

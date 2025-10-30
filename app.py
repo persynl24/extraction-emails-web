@@ -5,7 +5,7 @@ import io
 import re
 from datetime import datetime
 
-st.set_page_config(page_title="Extracteur Emails .msg", page_icon="📧", layout="wide")
+st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
 st.title("📧 Extracteur de données depuis fichiers .msg")
 st.markdown("---")

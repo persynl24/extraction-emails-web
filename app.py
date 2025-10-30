@@ -121,18 +121,30 @@ if uploaded_files:
                 df_excel['Link'] = df_excel['Link'].apply(
                     lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
                 )
-
+    
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     df_excel.to_excel(writer, index=False)
+            
+                    # Ajustement automatique de la largeur des colonnes
+                    worksheet = writer.sheets['Sheet1']
+                    from openpyxl.utils import get_column_letter
+                    for col_idx, col in enumerate(df_excel.columns, 1):
+                        max_length = max(
+                            df_excel[col].astype(str).map(len).max(),
+                            len(col)  # longueur de l'en-tête
+                         )
+                        worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
+    
                 excel_data = output.getvalue()
-
+    
                 st.download_button(
                     label="📊 Download Excel (clickable links)",
                     data=excel_data,
                     file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
 
             st.success(f"✅ Extraction complete! {len(data)} email(s) processed.")
         else:

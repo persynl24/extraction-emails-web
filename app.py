@@ -5,7 +5,7 @@ import io
 import re
 from datetime import datetime
 
-st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
+st.set_page_config(page_title="Extracteur Emails .msg", page_icon="📧", layout="wide")
 
 st.title("📧 Extracteur de données depuis fichiers .msg")
 st.markdown("---")
@@ -21,40 +21,44 @@ def extraire_infos(corps_email):
         'Lien': None
     }
 
-    # User ID et nom (tolérant sur majuscules/minuscules et accents)
-    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([A-ZÉÈÊÀÂÇa-z\s\-]+)', corps_email, re.IGNORECASE)
+    # Nettoyage de base
+    texte = corps_email.replace("\r", "").strip()
+
+    # User et Nom : capture jusqu'à la fin de la ligne
+    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([^\r\n]+)', texte, re.IGNORECASE)
     if match_user:
         infos['User_ID'] = match_user.group(1).strip()
         infos['Nom_Utilisateur'] = match_user.group(2).strip()
 
-    # Manager
-    match_manager = re.search(r'Manager:\s*([A-ZÉÈÊÀÂÇa-z\s\-]+)', corps_email, re.IGNORECASE)
+    # Manager : capture jusqu'à la fin de la ligne
+    match_manager = re.search(r'Manager:\s*([^\r\n]+)', texte, re.IGNORECASE)
     if match_manager:
         infos['Manager'] = match_manager.group(1).strip()
 
-    # Special permission (tolérant sur chiffres, tirets, underscores, espaces, parenthèses)
-    match_permission = re.search(r'Special\s+permission:\s*([A-Z0-9_\-\s]+)\s*\((\d+)\)', corps_email, re.IGNORECASE)
+    # Permission spéciale et code (tout avant et dans parenthèses)
+    match_permission = re.search(r'Special permission:\s*([^\(]+)\((\d+)\)', texte, re.IGNORECASE)
     if match_permission:
         infos['Permission_Speciale'] = match_permission.group(1).strip()
         infos['Code_Permission'] = match_permission.group(2).strip()
 
-    # Planned end date
-    match_date = re.search(r'Planned\s+End\s+date:\s*(\d{2}-\d{2}-\d{4})', corps_email, re.IGNORECASE)
+    # Date fin
+    match_date = re.search(r'Planned End date:\s*(\d{2}[-/]\d{2}[-/]\d{4})', texte, re.IGNORECASE)
     if match_date:
         infos['Date_Fin'] = match_date.group(1).strip()
 
-    # Lien
-    match_lien = re.search(r'Link:\s*(.+)', corps_email, re.IGNORECASE)
+    # Lien propre (avec ou sans chevrons)
+    match_lien = re.search(r'Link:\s*<?(https?://[^\s>]+)>?', texte, re.IGNORECASE)
     if match_lien:
         infos['Lien'] = match_lien.group(1).strip()
 
     return infos
 
 
+# --- Interface Streamlit ---
 st.sidebar.header("📁 Upload des fichiers")
 uploaded_files = st.sidebar.file_uploader(
-    "Sélectionnez vos fichiers .msg", 
-    type=['msg'], 
+    "Sélectionnez vos fichiers .msg",
+    type=['msg'],
     accept_multiple_files=True
 )
 
@@ -70,12 +74,6 @@ if uploaded_files:
             try:
                 msg = extract_msg.Message(io.BytesIO(uploaded_file.read()))
                 infos = extraire_infos(msg.body)
-
-                infos['Expediteur'] = msg.sender
-                infos['Sujet'] = msg.subject
-                infos['Date_Email'] = str(msg.date)
-                infos['Nom_Fichier'] = uploaded_file.name
-
                 donnees.append(infos)
                 msg.close()
 
@@ -87,13 +85,11 @@ if uploaded_files:
 
         if donnees:
             df = pd.DataFrame(donnees)
-
             colonnes_ordre = [
-                'User_ID', 'Nom_Utilisateur', 'Manager', 
-                'Permission_Speciale', 'Code_Permission', 'Date_Fin', 
-                'Lien', 'Date_Email', 'Expediteur', 'Sujet', 'Nom_Fichier'
+                'User_ID', 'Nom_Utilisateur', 'Manager',
+                'Permission_Speciale', 'Code_Permission',
+                'Date_Fin', 'Lien'
             ]
-
             df = df[colonnes_ordre]
 
             st.markdown("---")
@@ -105,6 +101,7 @@ if uploaded_files:
 
             col1, col2 = st.columns(2)
 
+            # --- CSV : lien texte simple ---
             with col1:
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(
@@ -114,14 +111,20 @@ if uploaded_files:
                     mime="text/csv"
                 )
 
+            # --- Excel : lien cliquable ---
             with col2:
+                df_excel = df.copy()
+                df_excel['Lien'] = df_excel['Lien'].apply(
+                    lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
+                )
+
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False)
+                    df_excel.to_excel(writer, index=False)
                 excel_data = output.getvalue()
 
                 st.download_button(
-                    label="📊 Télécharger Excel",
+                    label="📊 Télécharger Excel (liens cliquables)",
                     data=excel_data,
                     file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -137,10 +140,10 @@ else:
     st.markdown("---")
     st.subheader("📖 Instructions")
     st.markdown("""
-    1. Cliquez sur **"Browse files"** dans la barre latérale
-    2. Sélectionnez un ou plusieurs fichiers .msg
-    3. Cliquez sur **"EXTRAIRE LES DONNÉES"**
-    4. Téléchargez le résultat en CSV ou Excel
+    1. Cliquez sur **"Browse files"** dans la barre latérale  
+    2. Sélectionnez un ou plusieurs fichiers .msg  
+    3. Cliquez sur **"EXTRAIRE LES DONNÉES"**  
+    4. Téléchargez le résultat en CSV ou Excel  
     """)
 
     st.markdown("---")
@@ -152,7 +155,7 @@ User: Z99SKM / SAMPADA KUMARI
 Manager: GEOFFROY DE PUYT 
 Special permission: SP- Partial installation permission - Yes (7979) 
 Planned End date: 22-11-2025 
-Link: Link to special userpermission 
+Link: https://intranet.company.com/permissions?id=7979
 Regards, 
 PRIAM
     """)

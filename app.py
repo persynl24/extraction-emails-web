@@ -15,7 +15,7 @@ with col1:
     st.title("📧 AI4IAM - Special Permissions")
 with col2:
     st.markdown("""
-    <div style="white-space: nowrap; text-align: right; font-weight: bold;">
+    <div style="font-size:0.8rem; color:gray; margin-top:-10px;">
     Created by Loïc Persyn with the help of AI
     </div>
     """, unsafe_allow_html=True)

@@ -4,12 +4,15 @@ import extract_msg
 import io
 import re
 from datetime import datetime
+from openpyxl.utils import get_column_letter
 
+# --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
 st.title("📧 AI4IAM - Special Permissions")
 st.markdown("---")
 
+# --- FUNCTION TO EXTRACT INFO FROM EMAIL BODY ---
 def extract_info(email_body):
     info = {
         'User_ID': None,
@@ -45,11 +48,10 @@ def extract_info(email_body):
     if match_date:
         info['End_Date'] = match_date.group(1).strip()
 
-    # Link (clean extraction)
+    # Link
     match_link = re.search(r'Link:\s*<?([^>\r\n]+)>?', text, re.IGNORECASE)
     if match_link:
         link_text = match_link.group(1).strip()
-        # If both text and URL are stuck together, extract only the URL
         url_match = re.search(r'(https?://[^\s>]+)', link_text)
         if url_match:
             link_text = url_match.group(1).strip()
@@ -58,7 +60,7 @@ def extract_info(email_body):
     return info
 
 
-# --- Streamlit UI ---
+# --- SIDEBAR FILE UPLOAD ---
 st.sidebar.header("📁 Upload Files")
 uploaded_files = st.sidebar.file_uploader(
     "Select your .msg files",
@@ -66,6 +68,7 @@ uploaded_files = st.sidebar.file_uploader(
     accept_multiple_files=True
 )
 
+# --- MAIN LOGIC ---
 if uploaded_files:
     st.success(f"✅ {len(uploaded_files)} file(s) uploaded")
 
@@ -87,74 +90,71 @@ if uploaded_files:
             except Exception as e:
                 st.warning(f"⚠️ Error with {uploaded_file.name}: {str(e)}")
 
-            if data:
-                df = pd.DataFrame(data)
-                column_order = [
-                    'User_ID', 'User_Name', 'Manager',
-                    'Special_Permission', 'Permission_Code',
-                    'End_Date'
-                ]
-                df = df[column_order]
-    
-                # --- AJOUTER LA COLONNE VIDE AVANT "Link" ---
-                df['Needs Extension ? [y/n]'] = ""
-    
-                # Ajouter ensuite la colonne "Link" à la fin
-                df['Link'] = [item['Link'] for item in data]
-    
-                st.markdown("---")
-                st.subheader("📊 Extracted Data")
-                st.dataframe(df, use_container_width=True)
-    
-                st.markdown("---")
-                st.subheader("📥 Download Results")
-    
-                col1, col2 = st.columns(2)
-    
-                # --- CSV (plain link) ---
-                with col1:
-                    csv = df.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📄 Download CSV",
-                        data=csv,
-                        file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv"
-                    )
-    
-                # --- Excel (clickable links + auto width) ---
-                with col2:
-                    df_excel = df.copy()
-                    df_excel['Link'] = df_excel['Link'].apply(
-                        lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
-                    )
-    
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        df_excel.to_excel(writer, index=False)
-    
-                        # Ajustement automatique des colonnes
-                        from openpyxl.utils import get_column_letter
-                        worksheet = writer.sheets['Sheet1']
-                        for col_idx, col in enumerate(df_excel.columns, 1):
-                            max_length = max(
-                                df_excel[col].astype(str).map(len).max(),
-                                len(col)  # inclut l'en-tête
-                            )
-                            worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
-    
-                    excel_data = output.getvalue()
-    
-                    st.download_button(
-                        label="📊 Download Excel (clickable links)",
-                        data=excel_data,
-                        file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-    
-                st.success(f"✅ Extraction complete! {len(data)} email(s) processed.")
+        if data:
+            # --- CREATE DATAFRAME ---
+            df = pd.DataFrame(data)
+            column_order = [
+                'User_ID', 'User_Name', 'Manager',
+                'Special_Permission', 'Permission_Code',
+                'End_Date', 'Needs Extension ? [y/n]', 'Link'
+            ]
+            # Add empty column before Link
+            df.insert(6, 'Needs Extension ? [y/n]', "")
 
-                else:
-                    st.error("❌ No data extracted")
+            df = df[column_order]
+
+            # --- DISPLAY RESULTS ---
+            st.markdown("---")
+            st.subheader("📊 Extracted Data")
+            st.dataframe(df, use_container_width=True)
+
+            st.markdown("---")
+            st.subheader("📥 Download Results")
+
+            col1, col2 = st.columns(2)
+
+            # --- CSV DOWNLOAD ---
+            with col1:
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📄 Download CSV",
+                    data=csv,
+                    file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+
+            # --- EXCEL DOWNLOAD (with clickable links + auto width) ---
+            with col2:
+                df_excel = df.copy()
+                df_excel['Link'] = df_excel['Link'].apply(
+                    lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
+                )
+
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df_excel.to_excel(writer, index=False)
+                    worksheet = writer.sheets['Sheet1']
+
+                    # Ajustement automatique des colonnes
+                    for col_idx, col in enumerate(df_excel.columns, 1):
+                        max_length = max(
+                            df_excel[col].astype(str).map(len).max(),
+                            len(col)
+                        )
+                        worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
+
+                excel_data = output.getvalue()
+
+                st.download_button(
+                    label="📊 Download Excel (clickable links)",
+                    data=excel_data,
+                    file_name=f"permissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+            st.success(f"✅ Extraction complete! {len(data)} email(s) processed.")
+        else:
+            st.error("❌ No data extracted")
 
 else:
     st.info("👈 Upload your .msg files using the sidebar to get started.")

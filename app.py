@@ -21,29 +21,35 @@ def extraire_infos(corps_email):
         'Lien': None
     }
 
-    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([A-Z\s]+)', corps_email)
+    # User ID et nom (tolérant sur majuscules/minuscules et accents)
+    match_user = re.search(r'User:\s*([A-Z0-9]+)\s*/\s*([A-ZÉÈÊÀÂÇa-z\s\-]+)', corps_email, re.IGNORECASE)
     if match_user:
         infos['User_ID'] = match_user.group(1).strip()
         infos['Nom_Utilisateur'] = match_user.group(2).strip()
 
-    match_manager = re.search(r'Manager:\s*([A-Z\s]+)', corps_email)
+    # Manager
+    match_manager = re.search(r'Manager:\s*([A-ZÉÈÊÀÂÇa-z\s\-]+)', corps_email, re.IGNORECASE)
     if match_manager:
         infos['Manager'] = match_manager.group(1).strip()
 
-    match_permission = re.search(r'Special permission:\s*([^\(]+)\((\d+)\)', corps_email)
+    # Special permission (tolérant sur chiffres, tirets, underscores, espaces, parenthèses)
+    match_permission = re.search(r'Special\s+permission:\s*([A-Z0-9_\-\s]+)\s*\((\d+)\)', corps_email, re.IGNORECASE)
     if match_permission:
         infos['Permission_Speciale'] = match_permission.group(1).strip()
         infos['Code_Permission'] = match_permission.group(2).strip()
 
-    match_date = re.search(r'Planned End date:\s*(\d{2}-\d{2}-\d{4})', corps_email)
+    # Planned end date
+    match_date = re.search(r'Planned\s+End\s+date:\s*(\d{2}-\d{2}-\d{4})', corps_email, re.IGNORECASE)
     if match_date:
         infos['Date_Fin'] = match_date.group(1).strip()
 
-    match_lien = re.search(r'Link:\s*(.+)', corps_email)
+    # Lien
+    match_lien = re.search(r'Link:\s*(.+)', corps_email, re.IGNORECASE)
     if match_lien:
         infos['Lien'] = match_lien.group(1).strip()
 
     return infos
+
 
 st.sidebar.header("📁 Upload des fichiers")
 uploaded_files = st.sidebar.file_uploader(

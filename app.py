@@ -68,10 +68,15 @@ uploaded_files = st.sidebar.file_uploader(
     accept_multiple_files=True
 )
 
+# Show a simple counter instead of file list
+if uploaded_files:
+    st.sidebar.metric(label="📂 Uploaded Files", value=len(uploaded_files))
+else:
+    st.sidebar.info("👈 Upload your .msg files to begin")
+
+
 # --- MAIN LOGIC ---
 if uploaded_files:
-    st.success(f"✅ {len(uploaded_files)} file(s) uploaded")
-
     if st.button("🚀 EXTRACT DATA", type="primary"):
         data = []
         progress_bar = st.progress(0)
@@ -98,9 +103,7 @@ if uploaded_files:
                 'Special_Permission', 'Permission_Code',
                 'End_Date', 'Needs Extension ? [y/n]', 'Link'
             ]
-            # Add empty column before Link
-            df.insert(6, 'Needs Extension ? [y/n]', "")
-
+            df.insert(6, 'Needs Extension ? [y/n]', "")  # Empty column before Link
             df = df[column_order]
 
             # --- DISPLAY RESULTS ---
@@ -135,7 +138,7 @@ if uploaded_files:
                     df_excel.to_excel(writer, index=False)
                     worksheet = writer.sheets['Sheet1']
 
-                    # Ajustement automatique des colonnes
+                    # Adjust column widths automatically
                     for col_idx, col in enumerate(df_excel.columns, 1):
                         max_length = max(
                             df_excel[col].astype(str).map(len).max(),
@@ -157,8 +160,6 @@ if uploaded_files:
             st.error("❌ No data extracted")
 
 else:
-    st.info("👈 Upload your .msg files using the sidebar to get started.")
-
     st.markdown("---")
     st.subheader("📖 Instructions")
     st.markdown("""
@@ -173,10 +174,10 @@ else:
     st.code("""
 Dear Approver, 
 Please evaluate the special user permission below: 
-User: XABCDE / FIRST_NAME NAME
-Manager: MANAGER NAME 
+User: Z99SKM / SAMPADA KUMARI
+Manager: GEOFFROY DE PUYT 
 Special permission: SP- Partial installation permission - Yes (7979) 
-Planned End date: dd-mm-yyyy 
+Planned End date: 22-11-2025 
 Link: https://intranet.company.com/permissions?id=7979
 Regards, 
 PRIAM

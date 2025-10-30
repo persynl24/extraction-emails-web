@@ -173,10 +173,10 @@ else:
     st.code("""
 Dear Approver, 
 Please evaluate the special user permission below: 
-User: Z99SKM / SAMPADA KUMARI
-Manager: GEOFFROY DE PUYT 
+User: XABCDE / FIRST_NAME NAME
+Manager: MANAGER NAME 
 Special permission: SP- Partial installation permission - Yes (7979) 
-Planned End date: 22-11-2025 
+Planned End date: dd-mm-yyyy 
 Link: https://intranet.company.com/permissions?id=7979
 Regards, 
 PRIAM

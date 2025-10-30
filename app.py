@@ -10,15 +10,12 @@ from openpyxl.utils import get_column_letter
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
 # --- HEADER ---
-col1, col2 = st.columns([9,1])
-with col1:
-    st.title("📧 AI4IAM - Special Permissions")
-with col2:
-    st.markdown("""
-    <div style="font-size:0.8rem; color:gray; margin-top:-10px;">
-    Created by Loïc Persyn with the help of AI
-    </div>
-    """, unsafe_allow_html=True)
+st.title("📧 AI4IAM - Special Permissions")
+st.markdown("""
+<div style="font-size:0.8rem; color:gray; margin-top:-10px;">
+Created by Loïc Persyn with the help of AI
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 

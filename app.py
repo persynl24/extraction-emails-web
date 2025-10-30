@@ -89,7 +89,7 @@ if uploaded_files:
 
             if data:
                 df = pd.DataFrame(data)
-                 column_order = [
+                column_order = [
                     'User_ID', 'User_Name', 'Manager',
                     'Special_Permission', 'Permission_Code',
                     'End_Date'

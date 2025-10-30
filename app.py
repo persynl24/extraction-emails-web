@@ -14,7 +14,11 @@ col1, col2 = st.columns([9,1])
 with col1:
     st.title("📧 AI4IAM - Special Permissions")
 with col2:
-    st.markdown("**Created by Loïc Persyn with the help of AI**")
+    st.markdown("""
+    <div style="white-space: nowrap; text-align: right; font-weight: bold;">
+    Created by Loïc Persyn with the help of AI
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -61,8 +65,8 @@ def extract_info(email_body):
     return info
 
 # --- SIDEBAR FILE UPLOAD WITH LOGO ---
+st.sidebar.image("logo.png", width=240)  # <-- Votre logo ici
 st.sidebar.header("📁 Upload Files")
-st.sidebar.image("logo.png", width=120)  # <-- Votre logo ici
 uploaded_files = st.sidebar.file_uploader(
     "Select your .msg files",
     type=['msg'],

@@ -4,7 +4,8 @@ import extract_msg
 import io
 import re
 from datetime import datetime
-from openpyxl.utils import get_column_letter, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import PatternFill, Border, Side, Alignment
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")

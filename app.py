@@ -42,7 +42,11 @@ def extract_info(email_body):
     if match_manager:
         info['Manager'] = match_manager.group(1).strip()
 
-    match_permission = re.search(r'Special permission:\s*([^\(]+)\((\d+)\)', text, re.IGNORECASE)
+    match_permission = re.search(
+        r'Special\s*permission[:\-]?\s*([A-Za-z0-9 \-_/]+)\s*\((\d{3,})\)',
+        text,
+        re.IGNORECASE
+    )
     if match_permission:
         info['Special_Permission'] = match_permission.group(1).strip()
         info['Permission_Code'] = match_permission.group(2).strip()

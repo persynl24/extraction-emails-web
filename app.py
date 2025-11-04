@@ -4,7 +4,7 @@ import extract_msg
 import io
 import re
 from datetime import datetime
-from openpyxl.utils import get_column_letter
+from openpyxl.utils import get_column_letter PatternFill, Border, Side, Alignment
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
@@ -120,19 +120,40 @@ if uploaded_files:
             df_excel['Link'] = df_excel['Link'].apply(
                 lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
             )
-
+            
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 df_excel.to_excel(writer, index=False)
                 worksheet = writer.sheets['Sheet1']
-
-                # Auto-adjust column width
+            
+                # Define standard black border
+                thin_border = Border(
+                    left=Side(style='thin', color='000000'),
+                    right=Side(style='thin', color='000000'),
+                    top=Side(style='thin', color='000000'),
+                    bottom=Side(style='thin', color='000000')
+                )
+            
+                # Highlight color for "Needs Extension ? [y/n]"
+                yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+            
+                # Loop over all cells to apply border & alignment
+                for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+                    for cell in row:
+                        cell.border = thin_border
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+                        # Highlight "Needs Extension ? [y/n]" column
+                        if cell.column_letter == get_column_letter(df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1):
+                            cell.fill = yellow_fill
+            
+                # Auto-adjust column widths
                 for col_idx, col in enumerate(df_excel.columns, 1):
                     max_length = max(df_excel[col].astype(str).map(len).max(), len(col))
                     worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
-
+            
             excel_data = output.getvalue()
-
+            
             st.download_button(
                 label="📘 Download Excel – for manual review",
                 data=excel_data,

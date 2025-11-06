@@ -69,7 +69,7 @@ def extract_info(email_body):
 
 
 # --- SIDEBAR FILE UPLOAD WITH LOGO ---
-st.sidebar.image("logo.png", width=240)
+st.sidebar.image("AI4IAM Logo (2).png", width=240)
 st.sidebar.header("📁 Upload Files")
 uploaded_files = st.sidebar.file_uploader(
     "Select your .msg files",

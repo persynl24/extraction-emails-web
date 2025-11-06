@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill, Border, Side, Alignment
+from openpyxl.worksheet.table import Table, TableStyleInfo
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
@@ -117,44 +118,59 @@ if uploaded_files:
             st.markdown("---")
             st.subheader("📥 Download Results")
 
-            df_excel = df.copy()
+            # --- TRI, STYLE ET TABLEAU EXCEL ---
+            df_excel = df.copy().sort_values(by=['Manager', 'User_Name'], ascending=[True, True])
             df_excel['Link'] = df_excel['Link'].apply(
                 lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
             )
-            
+
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_excel.to_excel(writer, index=False)
-                worksheet = writer.sheets['Sheet1']
-            
-                # Define standard black border
+                df_excel.to_excel(writer, index=False, sheet_name='Permissions')
+                worksheet = writer.sheets['Permissions']
+
+                # --- FREEZE FIRST ROW ---
+                worksheet.freeze_panes = "A2"
+
+                # --- BORDER, ALIGNMENT, HIGHLIGHT ---
                 thin_border = Border(
                     left=Side(style='thin', color='000000'),
                     right=Side(style='thin', color='000000'),
                     top=Side(style='thin', color='000000'),
                     bottom=Side(style='thin', color='000000')
                 )
-            
-                # Highlight color for "Needs Extension ? [y/n]"
+
                 yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-            
-                # Loop over all cells to apply border & alignment
-                for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
+
+                for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row,
+                                                min_col=1, max_col=worksheet.max_column):
                     for cell in row:
                         cell.border = thin_border
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-            
-                        # Highlight "Needs Extension ? [y/n]" column
-                        if cell.column_letter == get_column_letter(df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1):
+
+                        if cell.column_letter == get_column_letter(
+                            df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1
+                        ):
                             cell.fill = yellow_fill
-            
-                # Auto-adjust column widths
+
+                # --- AUTO WIDTH ---
                 for col_idx, col in enumerate(df_excel.columns, 1):
                     max_length = max(df_excel[col].astype(str).map(len).max(), len(col))
                     worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
-            
+
+                # --- ADD TABLE WITH FILTERS ---
+                table_range = f"A1:{get_column_letter(worksheet.max_column)}{worksheet.max_row}"
+                table = Table(displayName="PermissionsTable", ref=table_range)
+                style = TableStyleInfo(
+                    name="TableStyleMedium9",
+                    showRowStripes=True,
+                    showColumnStripes=False
+                )
+                table.tableStyleInfo = style
+                worksheet.add_table(table)
+
             excel_data = output.getvalue()
-            
+
             st.download_button(
                 label="📘 Download Excel – for manual review",
                 data=excel_data,

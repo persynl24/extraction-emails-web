@@ -12,7 +12,7 @@ from openpyxl.worksheet.table import Table
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
 # --- HEADER ---
-st.title("📧 AI4IAM - Special Permissions")
+st.title("📧 Special Permissions Review ")
 st.markdown("""
 <div style="font-size:0.8rem; color:gray; margin-top:-10px;">
 Created by Loïc Persyn with the help of AI

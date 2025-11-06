@@ -5,8 +5,8 @@ import io
 import re
 from datetime import datetime
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import PatternFill, Border, Side, Alignment
-from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
+from openpyxl.worksheet.table import Table
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
@@ -67,14 +67,16 @@ def extract_info(email_body):
 
     return info
 
+
 # --- SIDEBAR FILE UPLOAD WITH LOGO ---
-st.sidebar.image("logo.png", width=240)  # <-- Votre logo ici
+st.sidebar.image("logo.png", width=240)
 st.sidebar.header("📁 Upload Files")
 uploaded_files = st.sidebar.file_uploader(
     "Select your .msg files",
     type=['msg'],
     accept_multiple_files=True
 )
+
 
 # --- MAIN LOGIC ---
 if uploaded_files:
@@ -100,7 +102,7 @@ if uploaded_files:
         if data:
             # --- CREATE DATAFRAME ---
             df = pd.DataFrame(data)
-            df.insert(6, 'Needs Extension ? [y/n]', "")  # Insert empty column before Link
+            df.insert(6, 'Needs Extension ? [y/n]', "")
 
             column_order = [
                 'User_ID', 'User_Name', 'Manager',
@@ -109,30 +111,29 @@ if uploaded_files:
             ]
             df = df[column_order]
 
+            # Sort data by Manager, then by User_Name
+            df.sort_values(by=['Manager', 'User_Name'], inplace=True)
+
             # --- DISPLAY RESULTS ---
             st.markdown("---")
-            st.subheader("📊 Extracted Data")
+            st.subheader("📊 Extracted Data (Sorted)")
             st.dataframe(df, use_container_width=True)
 
             # --- DOWNLOAD RESULTS ---
             st.markdown("---")
             st.subheader("📥 Download Results")
 
-            # --- TRI, STYLE ET TABLEAU EXCEL ---
-            df_excel = df.copy().sort_values(by=['Manager', 'User_Name'], ascending=[True, True])
+            df_excel = df.copy()
             df_excel['Link'] = df_excel['Link'].apply(
                 lambda x: f'=HYPERLINK("{x}", "{x}")' if isinstance(x, str) and x.startswith("http") else x
             )
 
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_excel.to_excel(writer, index=False, sheet_name='Permissions')
+                df_excel.to_excel(writer, index=False, sheet_name="Permissions")
                 worksheet = writer.sheets['Permissions']
 
-                # --- FREEZE FIRST ROW ---
-                worksheet.freeze_panes = "A2"
-
-                # --- BORDER, ALIGNMENT, HIGHLIGHT ---
+                # Apply standard border
                 thin_border = Border(
                     left=Side(style='thin', color='000000'),
                     right=Side(style='thin', color='000000'),
@@ -141,38 +142,38 @@ if uploaded_files:
                 )
 
                 yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+                bold_font = Font(bold=True)
 
+                # Apply formatting
                 for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row,
-                                                min_col=1, max_col=worksheet.max_column):
+                                               min_col=1, max_col=worksheet.max_column):
                     for cell in row:
                         cell.border = thin_border
                         cell.alignment = Alignment(horizontal="center", vertical="center")
 
-                        if cell.column_letter == get_column_letter(
-                            df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1
-                        ):
+                        # Bold header
+                        if cell.row == 1:
+                            cell.font = bold_font
+
+                        # Highlight yellow column
+                        if cell.column_letter == get_column_letter(df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1):
                             cell.fill = yellow_fill
 
-                # --- AUTO WIDTH ---
+                # Auto-adjust column widths
                 for col_idx, col in enumerate(df_excel.columns, 1):
                     max_length = max(df_excel[col].astype(str).map(len).max(), len(col))
                     worksheet.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
 
-                # --- ADD TABLE WITH FILTERS ---
-                table_range = f"A1:{get_column_letter(worksheet.max_column)}{worksheet.max_row}"
-                table = Table(displayName="PermissionsTable", ref=table_range)
-                style = TableStyleInfo(
-                    name="TableStyleMedium9",
-                    showRowStripes=True,
-                    showColumnStripes=False
-                )
-                table.tableStyleInfo = style
-                worksheet.add_table(table)
+                # Add autofilter
+                worksheet.auto_filter.ref = worksheet.dimensions
+
+                # Freeze header row
+                worksheet.freeze_panes = "A2"
 
             excel_data = output.getvalue()
 
             st.download_button(
-                label="📘 Download Excel – for manual review",
+                label="📘 Download Excel – clean format",
                 data=excel_data,
                 file_name=f"PRIAM - Special Permissions - {datetime.now().strftime('%Y-%m-%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -184,7 +185,6 @@ if uploaded_files:
 
 else:
     st.info("👈 Upload your .msg files using the sidebar to get started.")
-
     st.markdown("---")
     st.subheader("📖 Instructions")
     st.markdown("""

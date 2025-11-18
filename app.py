@@ -7,12 +7,13 @@ from datetime import datetime
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 from email.message import EmailMessage
+import base64
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="AI4IAM - Special Permissions", page_icon="📧", layout="wide")
 
 # --- HEADER ---
-st.title("📧 Special Permissions Review ")
+st.title("📧 Special Permissions Review")
 st.markdown("""
 <div style="font-size:0.8rem; color:gray; margin-top:-10px;">
 Created by Loïc Persyn with the help of AI
@@ -45,9 +46,9 @@ def extract_info(email_body):
         info['Manager'] = match_manager.group(1).strip()
 
     match_permission = re.search(
-        r'Special\s*permission[:\-]?\s*(.+)\((\d{3,})\)',
+        r'Special\s*permission[:\-]?\s*(.+)\((\d{3,})\)\s*$',
         text,
-        re.IGNORECASE
+        re.IGNORECASE | re.MULTILINE
     )
     if match_permission:
         info['Special_Permission'] = match_permission.group(1).strip()
@@ -67,38 +68,7 @@ def extract_info(email_body):
 
     return info
 
-# --- HTML TABLE GENERATOR FOR EML BODY ---
-def df_to_html_table(df):
-    yellow_col = 'Needs Extension ? [y/n]'
-    html = '<table style="border-collapse: collapse; width: 100%;">'
-    # Header
-    html += '<thead><tr>'
-    for col in df.columns:
-        bg = 'background-color: yellow;' if col == yellow_col else ''
-        html += (
-            f'<th style="border:1px solid black; padding:6px; font-weight:bold; {bg}">'
-            f'{col}</th>'
-        )
-    html += '</tr></thead><tbody>'
-    # Rows
-    for _, row in df.iterrows():
-        html += '<tr>'
-        for col in df.columns:
-            bg = 'background-color: yellow;' if col == yellow_col else ''
-            value = row[col] if pd.notna(row[col]) else ''
-            # ensure Link is clickable
-            if col == "Link" and isinstance(value, str) and value.startswith("http"):
-                cell_html = f'<a href="{value}">{value}</a>'
-            else:
-                # escape HTML-sensitive characters minimally
-                cell_html = str(value)
-            html += f'<td style="border:1px solid black; padding:6px; {bg}">{cell_html}</td>'
-        html += '</tr>'
-    html += '</tbody></table>'
-    return html
-
 # --- SIDEBAR FILE UPLOAD WITH LOGO ---
-# replace filename with your logo file path if needed
 st.sidebar.image("AI4IAM Logo (2).png", width=240)
 st.sidebar.header("📁 Upload Files")
 uploaded_files = st.sidebar.file_uploader(
@@ -131,7 +101,6 @@ if uploaded_files:
         if data:
             # --- CREATE DATAFRAME ---
             df = pd.DataFrame(data)
-            # insert empty column before Link
             df.insert(6, 'Needs Extension ? [y/n]', "")
 
             column_order = [
@@ -149,7 +118,7 @@ if uploaded_files:
             st.subheader("📊 Extracted Data (Sorted)")
             st.dataframe(df, use_container_width=True)
 
-            # --- DOWNLOAD: EXCEL ---
+            # --- EXCEL DOWNLOAD ---
             st.markdown("---")
             st.subheader("📥 Download Results")
 
@@ -163,7 +132,7 @@ if uploaded_files:
                 df_excel.to_excel(writer, index=False, sheet_name="Permissions")
                 worksheet = writer.sheets['Permissions']
 
-                # Apply standard border
+                # Apply border
                 thin_border = Border(
                     left=Side(style='thin', color='000000'),
                     right=Side(style='thin', color='000000'),
@@ -174,18 +143,13 @@ if uploaded_files:
                 yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
                 bold_font = Font(bold=True)
 
-                # Apply formatting
                 for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row,
                                                min_col=1, max_col=worksheet.max_column):
                     for cell in row:
                         cell.border = thin_border
                         cell.alignment = Alignment(horizontal="center", vertical="center")
-
-                        # Bold header
                         if cell.row == 1:
                             cell.font = bold_font
-
-                        # Highlight yellow column
                         if cell.column_letter == get_column_letter(df_excel.columns.get_loc('Needs Extension ? [y/n]') + 1):
                             cell.fill = yellow_fill
 
@@ -196,8 +160,6 @@ if uploaded_files:
 
                 # Add autofilter
                 worksheet.auto_filter.ref = worksheet.dimensions
-
-                # Freeze header row
                 worksheet.freeze_panes = "A2"
 
             excel_data = output.getvalue()
@@ -209,42 +171,48 @@ if uploaded_files:
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
-            # --- DOWNLOAD: EML (opens in compose because of X-Unsent header) ---
-            # Build HTML table identical to Excel (same df order)
-            table_html = df_to_html_table(df)
+            # --- CREATE .EML DOWNLOAD ---
+            # Generate HTML table (simple, no yellow)
+            html_table = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse;">'
+            html_table += '<thead><tr>'
+            for col in df_excel.columns:
+                html_table += f'<th>{col}</th>'
+            html_table += '</tr></thead><tbody>'
+            for _, row in df_excel.iterrows():
+                html_table += '<tr>'
+                for col in df_excel.columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        value = ''
+                    elif col == 'Link' and isinstance(value, str) and value.startswith('=HYPERLINK'):
+                        # extract URL
+                        url_match = re.search(r'"(.*?)"', value)
+                        value = f'<a href="{url_match.group(1)}">{url_match.group(1)}</a>' if url_match else value
+                    html_table += f'<td>{value}</td>'
+                html_table += '</tr>'
+            html_table += '</tbody></table>'
 
-            # email HTML body
-            email_html_body = f"""
-            <html><body>
-            Dear manager,<br><br>
-            Could you please review below Special Permission about to expire for some of your team members
-            and let us know if they need extension or not,<br><br>
-
-            {table_html}
-
-            <br><br>
-            Thank you,<br>
-            Kr,<br><br>
-            Loïc
-            </body></html>
+            eml_content = f"""
+Dear manager,<br><br>
+Could you please review below Special Permission about to expire for some of your team members and let us know if they need extension or not,<br><br>
+{html_table}<br><br>
+Thank you,<br>
+Kr,<br>
+Loïc
             """
 
-            # Build EmailMessage and set X-Unsent header so Outlook opens in compose mode
-            msg = EmailMessage()
-            msg['Subject'] = f"PRIAM Special Permission about to expire - {datetime.now().strftime('%Y-%m-%d')}"
-            # Optional: you can set From/To placeholders (left empty so user fills them)
-            msg['From'] = ''
-            msg['To'] = ''
-            msg['X-Unsent'] = '1'
-            msg.set_content("This message is in HTML format. If your client does not display HTML, please open in a mail client that supports HTML.")
-            msg.add_alternative(email_html_body, subtype='html')
+            eml_msg = EmailMessage()
+            eml_msg['Subject'] = f"PRIAM Special Permission about to expire - {datetime.now().strftime('%Y-%m-%d')}"
+            eml_msg['From'] = "loic@example.com"
+            eml_msg['To'] = "manager@example.com"
+            eml_msg.set_content("This email requires HTML support to view the table.")
+            eml_msg.add_alternative(eml_content, subtype='html')
 
-            eml_bytes = msg.as_bytes()
-
+            eml_bytes = eml_msg.as_bytes()
             st.download_button(
-                label="📩 Download .eml (opens in compose)",
+                label="✉️ Download .EML – ready to edit",
                 data=eml_bytes,
-                file_name=f"PRIAM - Expiring Special Permissions - {datetime.now().strftime('%Y-%m-%d')}.eml",
+                file_name=f"PRIAM - Special Permissions - {datetime.now().strftime('%Y-%m-%d')}.eml",
                 mime="message/rfc822"
             )
 
@@ -257,10 +225,21 @@ else:
     st.markdown("---")
     st.subheader("📖 Instructions")
     st.markdown("""
-    1. Upload one or more `.msg` email files in the sidebar.  
-    2. Click **"🚀 EXTRACT DATA"**.  
-    3. Download Excel and the .eml draft (opens in compose).  
-    4. Review the "Needs Extension ? [y/n]" column if needed.
+    1. Upload one or more `.msg` email files using the sidebar.  
+    2. Click **"🚀 EXTRACT DATA"** to process the emails.  
+    3. Download the results in Excel format using the button provided.  
+    4. Review the "Needs Extension ? [y/n]" column if applicable.
     """)
-
-# End of script
+    st.markdown("---")
+    st.subheader("📋 Example Email Format (Anonymized)")
+    st.code("""
+Dear Approver, 
+Please evaluate the special user permission below: 
+User: ABC123 / John Doe
+Manager: Jane Smith
+Special permission: SP- Partial installation permission - Yes (XXXX)
+Planned End date: 01-01-2025
+Link: https://company.com/permissions?id=XXXX
+Regards, 
+PRIAM
+    """)

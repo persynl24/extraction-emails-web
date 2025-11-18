@@ -3,7 +3,7 @@ import pandas as pd
 import extract_msg
 import io
 import re
-from datetime_tz import datetime
+from datetime import datetime
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill, Border, Side, Alignment, Font
 

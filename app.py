@@ -209,7 +209,7 @@ Your IOC/BV
 """
 
             eml_content = (
-                f"Subject: Special Permissions to be reviewed for your team"
+                f"Subject: Special Permissions to be reviewed for your team\n"
                 f"Content-Type: text/html; charset=UTF-8\n"
                 f"\n"
                 f"{email_body}"

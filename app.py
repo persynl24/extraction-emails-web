@@ -204,7 +204,7 @@ Could you please review below Special Permission about to expire for some of you
 {table_html}<br><br>
 Thank you,<br>
 Kr,<br><br>
-Loïc
+Your IOC/BV
 </body></html>
 """
 
